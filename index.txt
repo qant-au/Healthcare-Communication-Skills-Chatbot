@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Healthcare Communication Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .chat-bubble-user {
+            background-color: #3B82F6; /* blue-500 */
+            color: white;
+        }
+        .chat-bubble-ai {
+            background-color: #E5E7EB; /* gray-200 */
+            color: #1F2937; /* gray-800 */
+        }
+        .feedback-toast {
+            animation: fadeInOut 5s forwards;
+        }
+        @keyframes fadeInOut {
+            0%, 100% { opacity: 0; transform: translateY(20px); }
+            10%, 90% { opacity: 1; transform: translateY(0); }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        .mic-button.recording {
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse {
+            0% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7);
+            }
+            70% {
+                box-shadow: 0 0 0 10px rgba(239, 68, 68, 0);
+            }
+            100% {
+                box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 flex items-center justify-center min-h-screen">
+    <div id="app-container" class="w-full max-w-6xl mx-auto bg-white rounded-2xl shadow-2xl flex flex-col md:flex-row" style="height: 90vh;">
+
+        <!-- Left Panel: Chat Interface -->
+        <div class="w-full md:w-1/2 flex flex-col p-6 border-r border-gray-200">
+            <div class="flex-shrink-0 flex items-center mb-4">
+                 <div id="avatar-container" class="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mr-4 shadow-md">
+                    <svg id="avatar-svg" class="w-10 h-10 text-blue-500" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                         <path d="M12 12C14.2091 12 16 10.2091 16 8C16 5.79086 14.2091 4 12 4C9.79086 4 8 5.79086 8 8C8 10.2091 9.79086 12 12 12Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                         <path d="M20.59 22C20.59 18.13 16.74 15 12 15C7.26 15 3.41 18.13 3.41 22" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                         <path id="avatar-mouth" d="M9.5 17C10.5 18 11.5 18.5 12 18.5C12.5 18.5 13.5 18 14.5 17" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2 id="avatar-name" class="text-xl font-bold text-gray-900">AI Client</h2>
+                    <p id="avatar-status" class="text-sm text-green-500 font-medium">Online</p>
+                </div>
+            </div>
+
+            <div id="chat-window" class="flex-grow bg-gray-50 rounded-lg p-4 overflow-y-auto mb-4 border border-gray-200">
+                <div class="text-center text-gray-500 text-sm">Select a scenario to begin the simulation.</div>
+            </div>
+            
+             <div id="mic-permission-notice" class="hidden p-3 mb-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
+                <p class="font-bold">Microphone Access Needed</p>
+                <p class="text-sm">To use voice input, please allow microphone access in your browser's address bar or site settings.</p>
+            </div>
+
+            <div id="input-area" class="flex-shrink-0 flex items-center">
+                <input type="text" id="chat-input" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-200" placeholder="Type or use mic..." disabled>
+                <button id="mic-btn" class="mic-button ml-2 p-3 bg-gray-200 text-gray-600 rounded-full hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500 transition disabled:bg-gray-100">
+                    <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8h-1a6 6 0 11-12 0H3a7.001 7.001 0 006 6.93V17H7v1h6v-1h-2v-2.07z" clip-rule="evenodd" /></svg>
+                </button>
+                <button id="send-btn" class="ml-3 px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition disabled:bg-blue-300" disabled>Send</button>
+            </div>
+        </div>
+
+        <!-- Right Panel: Scenario and Feedback -->
+        <div class="w-full md:w-1/2 flex flex-col p-6 bg-gray-50/50">
+            <div id="scenario-panel" class="flex-grow flex flex-col">
+                <h2 class="text-2xl font-bold mb-4 text-gray-900">Communication Simulator</h2>
+                <div id="scenario-selection-area">
+                    <p class="text-gray-600 mb-4">Select a scenario to practice your communication skills.</p>
+                    <div id="scenario-buttons" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+                </div>
+                <div id="scenario-details" class="hidden mt-6">
+                     <h3 class="text-xl font-bold text-gray-800 mb-2" id="scenario-title"></h3>
+                     <p class="text-gray-600 mb-4" id="scenario-description"></p>
+                     <button id="end-session-btn" class="w-full py-2 px-4 bg-red-600 text-white font-semibold rounded-lg hover:bg-red-700">End Session & Get Review</button>
+                </div>
+            </div>
+            <div id="feedback-panel" class="hidden flex-grow flex-col justify-center items-center text-center p-4 bg-white rounded-lg shadow-inner mt-6 border">
+                 <h3 class="text-xl font-bold text-gray-800 mb-2">Performance Review</h3>
+                 <div id="feedback-content" class="text-gray-600"></div>
+                 <button id="restart-btn" class="mt-6 py-2 px-6 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700">Practice Another</button>
+            </div>
+            <div id="toast-container" class="absolute bottom-5 right-5 w-80"></div>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const chatWindow = document.getElementById('chat-window');
+        const chatInput = document.getElementById('chat-input');
+        const sendBtn = document.getElementById('send-btn');
+        const micBtn = document.getElementById('mic-btn');
+        const scenarioButtonsContainer = document.getElementById('scenario-buttons');
+        const scenarioSelectionArea = document.getElementById('scenario-selection-area');
+        const scenarioDetails = document.getElementById('scenario-details');
+        const scenarioTitle = document.getElementById('scenario-title');
+        const scenarioDescription = document.getElementById('scenario-description');
+        const endSessionBtn = document.getElementById('end-session-btn');
+        const feedbackPanel = document.getElementById('feedback-panel');
+        const feedbackContent = document.getElementById('feedback-content');
+        const restartBtn = document.getElementById('restart-btn');
+        const scenarioPanel = document.getElementById('scenario-panel');
+        const toastContainer = document.getElementById('toast-container');
+        const avatarMouth = document.getElementById('avatar-mouth');
+        const micPermissionNotice = document.getElementById('mic-permission-notice');
+        
+        // State
+        let conversationHistory = [];
+        let currentScenario = null;
+        let isAwaitingResponse = false;
+        // Hardcoded ElevenLabs API Key
+        let elevenLabsApiKey = 'sk_626b767cd3c37ffd083c2e1afba4ed2a8f0a75a00e49eac9';
+
+        // Speech Recognition
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition;
+        let isRecording = false;
+
+        if (SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.trim();
+                chatInput.value = transcript;
+                stopRecording();
+                handleUserMessage(); 
+            };
+
+            recognition.onerror = (event) => {
+                console.error("Speech recognition error:", event.error);
+                let errorMessage = `Mic error: ${event.error}`;
+                if (event.error === 'not-allowed') {
+                    errorMessage = "Microphone access denied by user.";
+                    micPermissionNotice.classList.remove('hidden');
+                } else if (event.error === 'no-speech') {
+                    errorMessage = "No speech was detected. Please try again.";
+                } else if (event.error === 'audio-capture') {
+                     errorMessage = "No microphone found. Ensure a microphone is connected.";
+                }
+                showFeedbackToast(errorMessage);
+                stopRecording();
+            };
+
+            recognition.onend = () => {
+                if(isRecording) stopRecording();
+            };
+
+        } else {
+            micBtn.disabled = true;
+            micBtn.title = "Speech recognition not supported in this browser.";
+        }
+
+        const scenarios = {
+            delayed_results: {
+                title: "Delayed Test Results",
+                description: "A client named 'Alex' is calling, anxious and frustrated because their important test results are two days late.",
+                ai_persona: "You are Alex, a healthcare client with an Australian accent. You are anxious and frustrated because your important test results are delayed. You are not aggressive, but firm. Start by expressing your frustration.",
+                client_name: "Alex",
+                voice_id: "IKne3meq5aSn9XLyUdCD" // Australian Voice - Charlie
+            },
+            complaint: {
+                title: "Complaint About Wait Times",
+                description: "A client, 'Jordan', is complaining about the long wait time during their last visit. They felt ignored.",
+                ai_persona: "You are Jordan, a healthcare client with an Australian accent. You are upset about a long wait time. You feel your time wasn't respected. You are disappointed and need to feel heard. Start by explaining why you are complaining.",
+                client_name: "Jordan",
+                voice_id: "IKne3meq5aSn9XLyUdCD" // Australian Voice - Charlie
+            },
+            misunderstanding: {
+                title: "Medication Misunderstanding",
+                description: "A client, 'Casey', is confused about their new medication instructions and took the wrong dose. They are worried.",
+                ai_persona: "You are Casey, a healthcare client with an Australian accent. You are confused and worried because you misunderstood medication instructions. You feel embarrassed. You need clear, non-judgmental guidance. Start by explaining your mistake.",
+                client_name: "Casey",
+                voice_id: "IKne3meq5aSn9XLyUdCD" // Australian Voice - Charlie
+            }
+        };
+
+        // --- Permission and Voice Interaction Logic ---
+        async function checkAndRequestMicPermission() {
+            if (!navigator.permissions) {
+                console.log("Permissions API not supported. Will prompt on first use.");
+                return;
+            }
+            try {
+                const permissionStatus = await navigator.permissions.query({ name: 'microphone' });
+                if (permissionStatus.state === 'denied') {
+                    micPermissionNotice.classList.remove('hidden');
+                    micBtn.disabled = true;
+                } else {
+                     micPermissionNotice.classList.add('hidden');
+                }
+                
+                permissionStatus.onchange = () => {
+                     if (permissionStatus.state === 'denied') {
+                        micPermissionNotice.classList.remove('hidden');
+                        micBtn.disabled = true;
+                    } else {
+                        micPermissionNotice.classList.add('hidden');
+                        micBtn.disabled = false;
+                    }
+                };
+
+            } catch (error) {
+                console.error("Error checking microphone permissions:", error);
+            }
+        }
+
+        function toggleRecording() {
+            if (!SpeechRecognition || micBtn.disabled) return;
+            if (isRecording) {
+                stopRecording();
+            } else {
+                startRecording();
+            }
+        }
+
+        function startRecording() {
+            try {
+                micPermissionNotice.classList.add('hidden'); // Hide notice on attempt
+                recognition.start();
+                isRecording = true;
+                micBtn.classList.add('recording', 'bg-red-500', 'text-white');
+                chatInput.placeholder = 'Listening...';
+            } catch(e) {
+                console.error("Could not start recording:", e);
+                showFeedbackToast("Mic may already be active or failed to start.");
+            }
+        }
+
+        function stopRecording() {
+            if(isRecording) {
+                recognition.stop();
+                isRecording = false;
+                micBtn.classList.remove('recording', 'bg-red-500', 'text-white');
+                updateInputState();
+            }
+        }
+
+        async function playAIAudio(text, voiceId) {
+            if (!elevenLabsApiKey) {
+                console.warn("ElevenLabs API key not set. Skipping audio playback.");
+                return;
+            }
+            if (!text || !voiceId) return;
+
+            const url = `https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`;
+            const headers = {
+                "Accept": "audio/mpeg",
+                "Content-Type": "application/json",
+                "xi-api-key": elevenLabsApiKey
+            };
+            const data = {
+                "text": text,
+                "model_id": "eleven_monolingual_v1",
+                "voice_settings": { "stability": 0.5, "similarity_boost": 0.5 }
+            };
+
+            isAwaitingResponse = true; 
+            updateInputState();
+
+            try {
+                const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(data) });
+                if (!response.ok) throw new Error(`ElevenLabs API Error: ${response.statusText}`);
+                const audioBlob = await response.blob();
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+                animateAvatarSpeaking(true);
+                audio.onended = () => {
+                    animateAvatarSpeaking(false);
+                    isAwaitingResponse = false;
+                    updateInputState();
+                };
+            } catch (error) {
+                console.error("ElevenLabs API call failed:", error);
+                showFeedbackToast("Failed to generate AI voice. Check API key or console.");
+                isAwaitingResponse = false;
+                updateInputState();
+            }
+        }
+        
+        // --- Gemini API Call ---
+        async function getGeminiResponse(prompt, history) {
+            isAwaitingResponse = true;
+            updateInputState();
+            
+            const fullHistory = [...history, { role: "user", parts: [{ text: prompt }] }];
+            const payload = { contents: fullHistory };
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                if (!response.ok) throw new Error(`API Error: ${response.statusText}`);
+                const result = await response.json();
+                if (result.candidates?.[0]?.content?.parts?.[0]) {
+                     return result.candidates[0].content.parts[0].text;
+                }
+                return "I'm sorry, I'm having trouble responding right now.";
+            } catch (error) {
+                console.error("Gemini API call failed:", error);
+                return "An error occurred. Please try again.";
+            } finally {
+                // isAwaitingResponse is handled by the audio player now
+            }
+        }
+        
+        function initializeScenarios() {
+            scenarioButtonsContainer.innerHTML = '';
+            Object.keys(scenarios).forEach(key => {
+                const scenario = scenarios[key];
+                const button = document.createElement('button');
+                button.className = "p-4 bg-white border border-gray-300 rounded-lg text-left hover:bg-gray-100 hover:border-blue-500 transition focus:outline-none focus:ring-2 focus:ring-blue-500";
+                button.innerHTML = `<h4 class="font-bold text-md text-blue-700">${scenario.title}</h4><p class="text-sm text-gray-600">${scenario.description}</p>`;
+                button.onclick = () => startScenario(key);
+                scenarioButtonsContainer.appendChild(button);
+            });
+        }
+        
+        async function startScenario(key) {
+            currentScenario = scenarios[key];
+            checkAndRequestMicPermission();
+            conversationHistory = [{ role: "user", parts: [{ text: `System Instruction: Embody this persona: ${currentScenario.ai_persona}. The user is a healthcare professional in training. Your primary purpose is to simulate a realistic, emotionally sensitive interaction. Maintain a calm, professional but concerned tone. Your goal is to help the learner practice communication. NEVER break character. Begin the conversation now.` }] }];
+            
+            document.getElementById('avatar-name').textContent = `AI Client (${currentScenario.client_name})`;
+            scenarioSelectionArea.classList.add('hidden');
+            scenarioDetails.classList.remove('hidden');
+            scenarioTitle.textContent = currentScenario.title;
+            scenarioDescription.textContent = currentScenario.description;
+
+            chatWindow.innerHTML = '<div class="flex justify-center items-center h-full"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div></div>';
+
+            const firstMessage = await getGeminiResponse("Start the conversation.", conversationHistory);
+            conversationHistory.push({ role: "model", parts: [{ text: firstMessage }] });
+            
+            chatWindow.innerHTML = '';
+            addMessageToChat('ai', firstMessage);
+            updateInputState();
+        }
+
+        function addMessageToChat(sender, message) {
+            const messageElement = document.createElement('div');
+            messageElement.className = `flex mb-4 ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
+            const bubble = document.createElement('div');
+            bubble.className = `rounded-2xl py-2 px-4 max-w-md shadow ${sender === 'user' ? 'chat-bubble-user' : 'chat-bubble-ai'}`;
+            bubble.textContent = message;
+
+            messageElement.appendChild(bubble);
+            chatWindow.appendChild(messageElement);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+
+            if (sender === 'ai') {
+                playAIAudio(message, currentScenario.voice_id);
+            }
+        }
+        
+        async function handleUserMessage() {
+            const message = chatInput.value.trim();
+            if (!message || isAwaitingResponse) return;
+
+            addMessageToChat('user', message);
+            chatInput.value = '';
+            conversationHistory.push({ role: "user", parts: [{ text: message }] });
+
+            const aiResponse = await getGeminiResponse(message, conversationHistory);
+            addMessageToChat('ai', aiResponse);
+            conversationHistory.push({ role: "model", parts: [{ text: aiResponse }] });
+            
+            getRealTimeFeedback(message);
+        }
+
+        async function getRealTimeFeedback(userMessage) {
+            const feedbackPrompt = `System Instruction: You are a communication coach. Analyze the user's last message: "${userMessage}". Is the tone empathetic, clear, and professional? Provide a very short, actionable tip (max 15 words). Example: "Try using more reassuring phrases." or "Good job acknowledging feelings.". Respond with ONLY the tip.`;
+            const feedbackText = await getGeminiResponse(feedbackPrompt, []); 
+            showFeedbackToast(feedbackText);
+        }
+
+        function showFeedbackToast(text) {
+             const toast = document.createElement('div');
+             toast.className = 'feedback-toast bg-gray-800 text-white p-4 rounded-lg shadow-lg flex items-center';
+             toast.innerHTML = `<span class="mr-2">💡</span><span>${text}</span>`;
+             toastContainer.innerHTML = '';
+             toastContainer.appendChild(toast);
+        }
+        
+        async function endSession() {
+            isAwaitingResponse = true;
+            updateInputState();
+            
+            feedbackPanel.classList.remove('hidden');
+            scenarioPanel.classList.add('hidden');
+            feedbackContent.innerHTML = '<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div><p class="mt-2">Analyzing...</p>';
+
+            const reviewPrompt = `System Instruction: You are a communication coach reviewing a conversation. Provide a short, constructive review of the trainee's performance based on: 1. Emotional tone/empathy. 2. Clarity. 3. Resolution steps. 4. Professional language. Use markdown bullet points.`;
+            const fullReviewHistory = [{ role: "user", parts: [{ text: reviewPrompt }] }, ...conversationHistory.slice(1)];
+            const reviewText = await getGeminiResponse("", fullReviewHistory);
+
+            let htmlReview = reviewText
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\* (.*?)(?=\n\* |$)/g, '<li class="list-disc list-inside mb-2">$1</li>');
+            feedbackContent.innerHTML = `<ul>${htmlReview}</ul>`;
+            
+            isAwaitingResponse = false;
+            updateInputState();
+        }
+
+        function resetApp() {
+            feedbackPanel.classList.add('hidden');
+            scenarioPanel.classList.remove('hidden');
+            scenarioSelectionArea.classList.remove('hidden');
+            scenarioDetails.classList.add('hidden');
+            chatWindow.innerHTML = '<div class="text-center text-gray-500 text-sm">Select a scenario to begin.</div>';
+            chatInput.value = '';
+            conversationHistory = [];
+            currentScenario = null;
+            micPermissionNotice.classList.add('hidden');
+            updateInputState();
+            initializeScenarios();
+        }
+
+        function updateInputState() {
+            const isDisabled = !currentScenario || isAwaitingResponse || isRecording;
+            chatInput.disabled = isDisabled;
+            sendBtn.disabled = isDisabled;
+            micBtn.disabled = micBtn.disabled || !currentScenario || isAwaitingResponse;
+            
+            if (isRecording) {
+                 chatInput.placeholder = 'Listening...';
+            } else if (isAwaitingResponse) {
+                chatInput.placeholder = 'AI is responding...';
+            } else if (!currentScenario) {
+                 chatInput.placeholder = 'Select a scenario first.';
+            } else {
+                chatInput.placeholder = 'Type or use mic...';
+            }
+        }
+
+        function animateAvatarSpeaking(isSpeaking) {
+            if (isSpeaking) {
+                avatarMouth.setAttribute('d', 'M9.5 17C10.5 17.5 11.5 18 12 18C12.5 18 13.5 17.5 14.5 17');
+            } else {
+                 setTimeout(() => {
+                    avatarMouth.setAttribute('d', 'M9.5 17C10.5 18 11.5 18.5 12 18.5C12.5 18.5 13.5 18 14.5 17');
+                }, 300);
+            }
+        }
+        
+        // --- Event Listeners ---
+        sendBtn.addEventListener('click', handleUserMessage);
+        chatInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') handleUserMessage();
+        });
+        micBtn.addEventListener('click', toggleRecording);
+        endSessionBtn.addEventListener('click', endSession);
+        restartBtn.addEventListener('click', resetApp);
+        
+        // --- Initial Load ---
+        window.onload = () => {
+            initializeScenarios();
+            updateInputState();
+            if (!SpeechRecognition) {
+                micPermissionNotice.innerHTML = '<p class="font-bold">Voice input not supported</p><p class="text-sm">Your browser does not support the Web Speech API.</p>';
+                micPermissionNotice.classList.remove('hidden');
+            }
+        };
+
+    </script>
+</body>
+</html>
